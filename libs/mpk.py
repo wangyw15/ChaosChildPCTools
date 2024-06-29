@@ -6,7 +6,7 @@ from pathlib import Path
 from .models import MPKFileInfo
 
 
-def unpack_mpk(file: PathLike | str, extract_folder: PathLike | None = None):
+def unpack_mpk(file: PathLike | str, extract_folder: PathLike | str | None = None):
     """
     unpack mpk file
 
@@ -15,14 +15,6 @@ def unpack_mpk(file: PathLike | str, extract_folder: PathLike | None = None):
     :return: None
     """
     mpk_path = Path(file)
-
-    # create a folder
-    if extract_folder:
-        extract_folder = Path(extract_folder)
-    else:
-        extract_folder = mpk_path.with_name("extracted_" + mpk_path.stem)
-    if not extract_folder.exists():
-        os.makedirs(extract_folder)
 
     if not mpk_path.exists():
         raise FileNotFoundError(f"cannot find {file}")
@@ -42,6 +34,14 @@ def unpack_mpk(file: PathLike | str, extract_folder: PathLike | None = None):
         # read file table
         for i in range(file_count):
             files.append(MPKFileInfo.unpack(mpk_file.read(0x100)))
+
+        # create extract folder
+        if extract_folder:
+            extract_folder = Path(extract_folder)
+        else:
+            extract_folder = mpk_path.with_name("extracted_" + mpk_path.stem)
+        if not extract_folder.exists():
+            os.makedirs(extract_folder)
 
         for file_info in files:
             target_folder = extract_folder / Path(file_info.name).parent
