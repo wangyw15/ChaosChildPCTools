@@ -5,13 +5,12 @@ from pathlib import Path
 from .models import MPKFileInfo
 
 
-def unpack_mpk(file: PathLike | str, extract_folder: PathLike | str | None = None):
+def get_files_info_in_mpk(file: PathLike | str) -> list[MPKFileInfo]:
     """
-    unpack mpk file
+    get files info in mpk file
 
     :param file: mpk file path
-    :param extract_folder: extract folder path
-    :return: None
+    :return: list of MPKFileInfo
     """
     mpk_path = Path(file)
 
@@ -34,15 +33,27 @@ def unpack_mpk(file: PathLike | str, extract_folder: PathLike | str | None = Non
         for i in range(file_count):
             files.append(MPKFileInfo.unpack(mpk_file.read(0x100)))
 
-        # create extract folder
-        if extract_folder:
-            extract_folder = Path(extract_folder)
-        else:
-            extract_folder = mpk_path.with_name("extracted_" + mpk_path.stem)
-        extract_folder.mkdir(parents=True, exist_ok=True)
+        return files
 
+
+def unpack_mpk(file: PathLike | str, unpack_folder: PathLike | str | None = None):
+    """
+    unpack mpk file
+
+    :param file: mpk file path
+    :param unpack_folder: unpacked folder path
+    :return: None
+    """
+    mpk_path = Path(file)
+
+    if not mpk_path.exists():
+        raise FileNotFoundError(f"cannot find {file}")
+
+    files = get_files_info_in_mpk(mpk_path)
+
+    with mpk_path.open("rb") as mpk_file:
         for file_info in files:
-            target_folder = extract_folder / Path(file_info.name).parent
+            target_folder = unpack_folder / Path(file_info.name).parent
 
             # create subdirectory
             if not target_folder.exists():
