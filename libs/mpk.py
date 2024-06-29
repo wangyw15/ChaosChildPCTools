@@ -1,4 +1,3 @@
-import os
 import struct
 from os import PathLike
 from pathlib import Path
@@ -40,8 +39,7 @@ def unpack_mpk(file: PathLike | str, extract_folder: PathLike | str | None = Non
             extract_folder = Path(extract_folder)
         else:
             extract_folder = mpk_path.with_name("extracted_" + mpk_path.stem)
-        if not extract_folder.exists():
-            os.makedirs(extract_folder)
+        extract_folder.mkdir(parents=True, exist_ok=True)
 
         for file_info in files:
             target_folder = extract_folder / Path(file_info.name).parent
