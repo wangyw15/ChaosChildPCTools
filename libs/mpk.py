@@ -1,7 +1,7 @@
 import os
 import struct
-from pathlib import Path
 from os import PathLike
+from pathlib import Path
 
 from .models import MPKFileInfo
 
