@@ -3,7 +3,7 @@ import struct
 from pathlib import Path
 from os import PathLike
 
-from .models import MPKFile
+from .models import MPKFileInfo
 
 
 def unpack_mpk(file: PathLike | str, extract_folder: PathLike | None = None):
@@ -37,11 +37,11 @@ def unpack_mpk(file: PathLike | str, extract_folder: PathLike | None = None):
         mpk_file.read(0x34)
 
         # index table
-        files: list[MPKFile] = []
+        files: list[MPKFileInfo] = []
 
         # read file table
         for i in range(file_count):
-            files.append(MPKFile.unpack(mpk_file.read(0x100)))
+            files.append(MPKFileInfo.unpack(mpk_file.read(0x100)))
 
         for file_info in files:
             target_folder = extract_folder / Path(file_info.name).parent

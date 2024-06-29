@@ -2,7 +2,7 @@ import struct
 from collections.abc import Buffer
 
 
-class MPKFile:
+class MPKFileInfo:
     _flag: bool
     _index: int
     _offset: int
@@ -58,9 +58,9 @@ class MPKFile:
         self._size = value
 
     @staticmethod
-    def unpack(buffer: Buffer) -> "MPKFile":
+    def unpack(buffer: Buffer) -> "MPKFileInfo":
         unpacked = struct.unpack("?I3Q224s", buffer)
-        return MPKFile(
+        return MPKFileInfo(
             flag=unpacked[0],
             index=unpacked[1],
             offset=unpacked[2],
