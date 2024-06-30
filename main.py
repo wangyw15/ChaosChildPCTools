@@ -19,7 +19,9 @@ args = main_parser.parse_args()
 
 
 def main():
-    if args.subcommand == "view-mpk":
+    if not args.subcommand:
+        main_parser.print_help()
+    elif args.subcommand == "view-mpk":
         files = libs.get_files_info_in_mpk(args.input)
         for i in files:
             print(i.name)
