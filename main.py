@@ -7,9 +7,9 @@ subparsers = main_parser.add_subparsers(title="Sub commands", description="Avail
 view_mpk_parser = subparsers.add_parser("view-mpk", help="View mpk file")
 view_mpk_parser.add_argument("input", help="Path to the mpk file", type=str)
 
-extract_mpk_parser = subparsers.add_parser("extract-mpk", help="Extract mpk file")
-extract_mpk_parser.add_argument("input", help="Path to the mpk file", type=str)
-extract_mpk_parser.add_argument("output", help="Path to the unpacked dir", type=str)
+unpack_mpk_parser = subparsers.add_parser("unpack-mpk", help="Unpack mpk file")
+unpack_mpk_parser.add_argument("input", help="Path to the mpk file", type=str)
+unpack_mpk_parser.add_argument("output", help="Path to the unpacked dir", type=str)
 
 extract_lay_parser = subparsers.add_parser("extract-lay", help="Extract lay image")
 extract_lay_parser.add_argument("input", help="Path to the lay file", type=str)
@@ -23,10 +23,10 @@ def main():
         files = libs.get_files_info_in_mpk(args.input)
         for i in files:
             print(i.name)
-    elif args.subcommand == "extract-mpk":
+    elif args.subcommand == "unpack-mpk":
         libs.unpack_mpk(args.input, args.output)
     elif args.subcommand == "extract-lay":
-        libs.unpack_mpk(args.input, args.output)
+        libs.extract_lay_image(args.input, args.output)
 
 
 if __name__ == "__main__":
