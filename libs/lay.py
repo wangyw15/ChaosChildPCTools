@@ -5,12 +5,16 @@ from pathlib import Path
 
 from PIL import Image
 
+CANVAS_SIZE = (4000, 4000)
+SOURCE_TILE_SIZE = 32
+DRAW_TILE_SIZE = 30
+
 
 def extract_lay_image(
-        file: PathLike | str,
-        extract_folder: PathLike | str | None = None,
-        save_parts=True,
-        save_composed=True
+    file: PathLike | str,
+    extract_folder: PathLike | str | None = None,
+    save_parts=True,
+    save_composed=True,
 ):
     """
     decrypt lay image file
@@ -50,15 +54,19 @@ def extract_lay_image(
 
     lay_data_pointer = 0
 
-    # the head of the file is the number of images and part blocks
-    image_count, part_count = struct.unpack("<2I", lay_data[lay_data_pointer : lay_data_pointer + 8])
+    # the head of the file is the number of parts and tiles
+    part_count, tile_count = struct.unpack(
+        "<2I", lay_data[lay_data_pointer : lay_data_pointer + 8]
+    )
     lay_data_pointer += 8
 
     # image information following
     part_number: list[int] = []
-    part_tree: list = []
-    for i in range(image_count):
-        part_tree.append(struct.unpack("<4b", lay_data[lay_data_pointer : lay_data_pointer + 4]))
+    compose_tree: list = []
+    for i in range(part_count):
+        compose_tree.append(
+            struct.unpack("<4b", lay_data[lay_data_pointer : lay_data_pointer + 4])
+        )
         lay_data_pointer += 4
 
         part_number.append(
@@ -66,8 +74,8 @@ def extract_lay_image(
         )  # the block number of image
         lay_data_pointer += 4
 
-        lay_data_pointer += 4  # ?
-    part_number.append(part_count)
+        # I have no idea about this segment
+        lay_data_pointer += 4
 
     # get extract path
     if extract_folder:
@@ -84,73 +92,101 @@ def extract_lay_image(
     if save_composed:
         composed_folder.mkdir(exist_ok=True)
 
-    # origin png file
+    # source png file
     source_image = Image.open(png_path)
-
-    # init the canvas
-    canvas = Image.new("RGBA", (4000, 2000))
-
-    # get the range of drawing block
-    min_x, min_y, max_x, max_y = 0, 0, 0, 0
 
     # get the parts
     part_images = []
     part_position = []
-    part_index = 0
 
-    # TODO refact code
-    for i in range(part_count + 1):
-        # read part position in source image
-        f1, f2, f3, f4 = 0, 0, 0, 0
-        if lay_data_pointer < len(lay_data):
-            f1, f2, f3, f4 = struct.unpack("<4f", lay_data[lay_data_pointer : lay_data_pointer + 16])
-        lay_data_pointer += 16
+    # draw parts
+    for i_part in range(part_count):
+        # calculate part tile count
+        if i_part + 1 < part_count:
+            part_tile_count = part_number[i_part + 1] - part_number[i_part]
+        else:
+            part_tile_count = tile_count - part_number[i_part]
 
-        # image center
-        f1 += 2000.0
-        f2 += 1000.0
+        # compose tiles into parts
+        canvas = Image.new("RGBA", CANVAS_SIZE)
+        min_x, min_y, max_x, max_y = canvas.size[0], canvas.size[1], 0, 0
 
-        if i == part_number[part_index]:
-            if i != 0:
-                part = canvas.crop((min_x, min_y, max_x + 30, max_y + 30))
-                part_images.append(part)
-                part_position.append((min_x, min_y, max_x + 30, max_y + 30))
-                if save_parts:
-                    part.save(parts_folder / (str(part_index) + ".png"))
-                canvas = Image.new("RGBA", (4000, 2000))  # reset the Canvas
-            part_index += 1
-            min_x, min_y, max_x, max_y = int(f1), int(f2), int(f1), int(f2)
-        part_block = source_image.crop((int(f3) - 1, int(f4) - 1, int(f3) + 29, int(f4) + 29))
-        x, y = int(f1), int(f2)
-        canvas.paste(part_block, (x, y))
+        for i_tile in range(part_tile_count):
+            part_x, part_y, source_x, source_y = struct.unpack(
+                "<4f", lay_data[lay_data_pointer : lay_data_pointer + 16]
+            )
+            lay_data_pointer += 16
 
-        min_x = min(min_x, x)
-        max_x = max(max_x, x)
-        min_y = min(min_y, y)
-        max_y = max(max_y, y)
+            # part position relative to image center
+            part_x += canvas.size[0] / 2
+            part_y += canvas.size[1] / 2
+
+            # copy from source image
+            tile_image = source_image.crop(
+                (
+                    int(source_x) - 1,
+                    int(source_y) - 1,
+                    int(source_x) + SOURCE_TILE_SIZE - 1,
+                    int(source_y) + SOURCE_TILE_SIZE - 1,
+                )
+            )
+
+            # paste to canvas
+            part_x, part_y = int(part_x), int(part_y)
+            canvas.paste(tile_image, (part_x, part_y))
+
+            # update drawing box
+            min_x = min(min_x, part_x)
+            min_y = min(min_y, part_y)
+            max_x = max(max_x, part_x)
+            max_y = max(max_y, part_y)
+
+        # crop the part and append to list
+        part_box = (min_x, min_y, max_x + DRAW_TILE_SIZE, max_y + DRAW_TILE_SIZE)
+        cropped_part = canvas.crop(part_box)
+        part_position.append(part_box)
+        part_images.append(cropped_part)
+
+        if save_parts:
+            cropped_part.save(parts_folder / (str(i_part) + ".png"))
 
     if save_composed:
-        # only one image
-        if image_count == 1:
+        # only one part
+        if part_count == 1:
             part_images[0].save(composed_folder / png_path.name)
             return
 
-        part_index = 0
-        path = [-1] * 7
+        # compose image by path
+        compose_path = [-1] * 7
         last = -1
-        for i in range(image_count + 1):
-            if i >= image_count or int(part_tree[i][3] / 0x10) <= last:  # last image is a leaf
-                canvas = Image.new("RGBA", (4000, 2000))
-                min_x, min_y, max_x, max_y = part_position[0]
-                for k in range(last + 1):
-                    if path[k] != -1:
-                        x, y, z, w = part_position[path[k]]
-                        min_x, max_x = min(min_x, x), max(max_x, x)
-                        min_y, max_y = min(min_y, y), max(max_y, y)
-                        canvas.paste(part_images[path[k]], (x, y), mask=part_images[path[k]])
-                part = canvas.crop((min_x, min_y, max_x, max_y))
-                part.save(composed_folder / (file_path.stem + str(part_index) + ".png"))
-                part_index += 1
-            if i < image_count:
-                last = int(part_tree[i][3] / 0x10)
-                path[last] = i
+
+        i_image = 0
+        for i_part in range(part_count + 1):
+            # path meets end
+            if i_part >= part_count or int(compose_tree[i_part][3] / 0x10) <= last:
+                print(i_image, compose_path)
+                canvas = Image.new("RGBA", CANVAS_SIZE)
+                # crop image
+                min_x, min_y, max_x, max_y = canvas.size[0], canvas.size[1], 0, 0
+
+                # composing
+                for i_path in range(last + 1):
+                    if compose_path[i_path] != -1:
+                        x, y, a, b = part_position[compose_path[i_path]]
+                        min_x = min(min_x, x)
+                        min_y = min(min_y, y)
+                        max_x = max(max_x, a)
+                        max_y = max(max_y, b)
+                        canvas.paste(
+                            part_images[compose_path[i_path]],
+                            (x, y),
+                            part_images[compose_path[i_path]],
+                        )
+                cropped_image = canvas.crop((min_x, min_y, max_x, max_y))
+                cropped_image.save(composed_folder / (str(i_image) + ".png"))
+                i_image += 1
+
+            # iter tree by DFS
+            if i_part < part_count:
+                last = int(compose_tree[i_part][3] / 0x10)
+                compose_path[last] = i_part
