@@ -7,7 +7,7 @@ from PIL import Image
 
 CANVAS_SIZE = (4000, 4000)
 SOURCE_TILE_SIZE = 32
-DRAW_TILE_SIZE = 30
+DRAW_TILE_SIZE = SOURCE_TILE_SIZE
 
 
 def extract_lay_image(
@@ -164,7 +164,6 @@ def extract_lay_image(
         for i_part in range(part_count + 1):
             # path meets end
             if i_part >= part_count or int(compose_tree[i_part][3] / 0x10) <= last:
-                print(i_image, compose_path)
                 canvas = Image.new("RGBA", CANVAS_SIZE)
                 # crop image
                 min_x, min_y, max_x, max_y = canvas.size[0], canvas.size[1], 0, 0
