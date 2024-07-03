@@ -15,10 +15,10 @@ extract_lay_parser = subparsers.add_parser("extract-lay", help="Extract lay imag
 extract_lay_parser.add_argument("input", help="Path to the lay file", type=str)
 extract_lay_parser.add_argument("output", help="Path to the extract images", type=str)
 
-args = main_parser.parse_args()
-
 
 def main():
+    args = main_parser.parse_args()
+
     if not args.subcommand:
         main_parser.print_help()
     elif args.subcommand == "view-mpk":
