@@ -15,6 +15,10 @@ extract_lay_parser = subparsers.add_parser("extract-lay", help="Extract lay imag
 extract_lay_parser.add_argument("input", help="Path to the lay file", type=str)
 extract_lay_parser.add_argument("output", help="Path to the extract images", type=str)
 
+extract_gxt_parser = subparsers.add_parser("extract-gxt", help="Extract gxt image")
+extract_gxt_parser.add_argument("input", help="Path to the gxt file", type=str)
+extract_gxt_parser.add_argument("output", help="Path to the extract images", type=str)
+
 
 def main():
     args = main_parser.parse_args()
@@ -29,6 +33,8 @@ def main():
         libs.unpack_mpk(args.input, args.output)
     elif args.subcommand == "extract-lay":
         libs.extract_lay_image(args.input, args.output)
+    elif args.subcommand == "extract-gxt":
+        libs.extract_gxt_image(args.input, args.output)
 
 
 if __name__ == "__main__":

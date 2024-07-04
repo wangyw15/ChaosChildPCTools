@@ -1,23 +1,34 @@
-#!/usr/bin/env python3
-from PIL import Image, ImageFile, ImagePalette
-import zlib, struct, io
+import io
+import struct
+import zlib
+from os import PathLike
+from pathlib import Path
+
+from PIL import Image, ImageFile
 
 
 class GxtHeader:
     def __init__(self, data):
-        assert data[0:4] == b"GXT\x00", "unknown magic of GXT header"
+        # check if a valid GXT file
+        if data[0:4] != b"GXT\x00":
+            raise ValueError("Invalid GXT header, maybe not a GXT file")
+
+        # check if a supported version
         self.ver = struct.unpack("2H", data[4:8])
-        assert self.ver == (3, 0x1000), "version unsupport"
+        if self.ver != (3, 0x1000):
+            raise ValueError("Unsupported GXT version")
+
         (
-            self.textures_num,
+            self.textures_count,
             self.texture_offset,
             self.texture_size,
             self.palette_4_len,
             self.palette_8_len,
             self.Padding,
         ) = struct.unpack("6I", data[8:0x20])
-        assert self.palette_4_len == 0, self.palette_4_len
-        assert self.palette_8_len == 1, self.palette_8_len
+
+        if self.palette_4_len != 0 or self.palette_8_len != 1:
+            raise ValueError("Unsupported palette length")
 
     def get_offset(self):
         return self.texture_offset
@@ -40,9 +51,12 @@ class GxtTextureInfo:
             self.texture_type,
             self.texture_format,
         ) = struct.unpack("6I", data[:24])
+
         self.width, self.height = struct.unpack("2H", data[24:28])
+
         # P8_ARGB
-        assert self.texture_format == 0x95001000, hex(self.texture_format)
+        if self.texture_format != 0x95001000:
+            raise ValueError("Unsupported texture format, expected 0x95001000, got {}".format(hex(self.texture_format)))
 
 
 class GxtImageFile(ImageFile.ImageFile):
@@ -52,7 +66,7 @@ class GxtImageFile(ImageFile.ImageFile):
     --------
     textures
     --------
-    piexls
+    pixels
     --------
     palettes
     """
@@ -62,16 +76,25 @@ class GxtImageFile(ImageFile.ImageFile):
 
     def _open(self):
         data = self.fp.read(2)
-        if data == b"\x78\x9c":
+
+        # decompress if needed
+        if data == b"\x78\x5e":
             self.fp.seek(0)
             data = zlib.decompress(self.fp.read())
             self.fp = io.BytesIO(data)
+
+        # read header
         self.fp.seek(0)
         self.header = GxtHeader(self.fp.read(0x20))
-        assert self.header.textures_num == 1, "multi textures unsupport"
+
+        # check if only one texture
+        if self.header.textures_count != 1:
+            raise ValueError("multi textures not supported")
+
+        # read texture info
         self.texture = GxtTextureInfo(self.fp.read(0x20))
         self._size = (self.texture.width, self.texture.height)
-        self.mode = "P"
+        self._mode = "P"
         self.tile = [("gxt", (0, 0) + self.size, 0, (self.header, self.texture))]
 
 
@@ -103,17 +126,28 @@ class GxtDecoder(ImageFile.PyDecoder):
         return data
 
 
-def aligned(buf, width):
+def aligned(buf: bytes, width: int):
+    """
+    Extract `width` bytes from each segment, sees `buf` as multiple n*8 aligned segments
+
+    :param buf: the buffer to extract data
+    :param width: the width of data size
+
+    :return: the extracted data
+    """
+    # already aligned
     if width % 8 == 0:
         return buf
-    r = width + 8 - width % 8
+
+    aligned_segment_size = width + 8 - width % 8
     ret = b""
     while len(buf) > 0:
         ret += buf[:width]
-        buf = buf[r:]
+        buf = buf[aligned_segment_size:]
     return ret
 
 
+# TODO Refactor below functions
 def _compact(x):
     x &= 0x55555555  # x = -f-e -d-c -b-a -9-8 -7-6 -5-4 -3-2 -1-0
     x = (x ^ (x >> 1)) & 0x33333333  # x = --fe --dc --ba --98 --76 --54 --32 --10
@@ -154,12 +188,21 @@ Image.register_open("GXT", GxtImageFile)
 Image.register_decoder("gxt", GxtDecoder)
 Image.register_extension("GXT", ".gxt")
 
-if __name__ == "__main__":
-    import argparse
-    from PIL import Image
 
-    parser = argparse.ArgumentParser("python3 gxt.py")
-    parser.add_argument("filename")
-    args = parser.parse_args()
-    tmp = Image.open(args.filename)
-    tmp.save(args.filename[:-4] + ".png")
+def extract_gxt_image(file: PathLike | str, output_file: PathLike | str | None = None):
+    """
+    Extract GXT image to PNG
+
+    :param file: the GXT file
+    :param output_file: the output PNG file, if None, will use the same name as the GXT file with PNG extension
+
+    :return: None
+    """
+    file = Path(file)
+    if output_file:
+        output_file = Path(output_file)
+    else:
+        output_file = file.with_suffix(".png")
+
+    with Image.open(file) as img:
+        img.save(output_file)
