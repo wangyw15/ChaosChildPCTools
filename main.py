@@ -32,6 +32,8 @@ def main():
     else:
         output_path = Path(args.output)
 
+    output_path.mkdir(parents=True, exist_ok=True)
+
     if input_path.is_file():
         input_files.append(input_path)
     elif input_path.is_dir():
@@ -50,24 +52,36 @@ def main():
     elif args.subcommand == "unpack-mpk":
         for f in input_files:
             if f.suffix.lower() == ".mpk":
-                if len(input_files) == 1:
-                    libs.unpack_mpk(f, output_path.parent / f.stem)
-                else:
-                    libs.unpack_mpk(f, output_path / f.stem)
+                print(f)
+                try:
+                    if len(input_files) == 1:
+                        libs.unpack_mpk(f, output_path)
+                    else:
+                        libs.unpack_mpk(f, output_path / f.stem)
+                except ValueError as e:
+                    print(e)
     elif args.subcommand == "extract-lay":
         for f in input_files:
             if f.suffix.lower() == ".lay":
-                if len(input_files) == 1:
-                    libs.extract_lay_image(f, output_path.parent / f.stem)
-                else:
-                    libs.extract_lay_image(f, output_path / f.stem)
+                print(f)
+                try:
+                    if len(input_files) == 1:
+                        libs.extract_lay_image(f, output_path)
+                    else:
+                        libs.extract_lay_image(f, output_path / f.stem)
+                except ValueError as e:
+                    print(e)
     elif args.subcommand == "extract-gxt":
         for f in input_files:
             if f.suffix.lower() == ".gxt":
-                if len(input_files) == 1:
-                    libs.extract_gxt_image(f, output_path.parent / f.stem)
-                else:
-                    libs.extract_gxt_image(f, output_path / (f.stem + ".png"))
+                print(f)
+                try:
+                    if len(input_files) == 1:
+                        libs.extract_gxt_image(f, output_path)
+                    else:
+                        libs.extract_gxt_image(f, output_path / (f.stem + ".png"))
+                except ValueError as e:
+                    print(e)
 
 
 if __name__ == "__main__":

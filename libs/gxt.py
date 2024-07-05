@@ -78,7 +78,7 @@ class GxtImageFile(ImageFile.ImageFile):
         data = self.fp.read(2)
 
         # decompress if needed
-        if data == b"\x78\x5e":
+        if data in [b"\x78\x5e", b"\x78\x9c"]:
             self.fp.seek(0)
             data = zlib.decompress(self.fp.read())
             self.fp = io.BytesIO(data)
