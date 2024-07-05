@@ -204,5 +204,5 @@ def extract_gxt_image(file: PathLike | str, output_file: PathLike | str | None =
     else:
         output_file = file.with_suffix(".png")
 
-    with Image.open(file) as img:
+    with Image.open(file, formats=["GXT"]) as img:
         img.save(output_file)

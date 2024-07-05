@@ -93,7 +93,7 @@ def extract_lay_image(
         composed_folder.mkdir(exist_ok=True)
 
     # source png file
-    source_image = Image.open(png_path)
+    source_image = Image.open(png_path, formats=["PNG"])
 
     # get the parts
     part_images = []
